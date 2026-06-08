@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mypdv-saas-v1-comercial-cache-v1';
+const CACHE_NAME = 'mypdv-saas-v1-comercial-cache-v2';
 const APP_SHELL = [
   './',
   './index.html',

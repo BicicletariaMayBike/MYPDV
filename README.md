@@ -1,4 +1,4 @@
-# My PDV SaaS V1.0 Comercial
+# My PDV SaaS V1.0.1 Comercial
 
 Base comercial multiempresa criada a partir do ERP aprovado.
 
@@ -14,3 +14,6 @@ Base comercial multiempresa criada a partir do ERP aprovado.
 
 ## Importante
 Esta é a fundação SaaS. Antes de vender em escala, teste com 1 a 3 lojas beta.
+
+
+Correção: API key Firebase ajustada para permitir cadastro/login por e-mail.
