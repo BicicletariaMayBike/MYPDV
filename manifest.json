@@ -1,8 +1,8 @@
 {
   "name": "My PDV SaaS",
   "short_name": "My PDV",
-  "description": "My PDV SaaS V1.0 Comercial multiempresa com login, cadastro de loja, planos e backup.",
-  "start_url": "./index.html",
+  "description": "My PDV SaaS V1.0.3 Comercial multiempresa com login, cadastro de loja, planos e backup.",
+  "start_url": "./index.html?v=103",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",

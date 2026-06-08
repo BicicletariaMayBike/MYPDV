@@ -1,6 +1,3 @@
-# My PDV SaaS V1.0.2 Comercial
+# My PDV SaaS V1.0.3 Corrigido
 
-Correção:
-- Firebase apiKey corrigida
-- Cache do PWA atualizado
-- Mantém login Firebase, cadastro de empresa, multiempresa inicial, planos e backup JSON
+Correção de cache, Firebase API Key, autenticação e publicação forçada do app.js v103.
