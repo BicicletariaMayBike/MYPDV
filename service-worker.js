@@ -1,6 +1,6 @@
-const CACHE_NAME = 'mypdv-saas-v1-0-4-cache';
+const CACHE_NAME = 'mypdv-saas-v1-0-6-cache';
 const APP_SHELL = [
-  './', './index.html', './style.css?v=104', './app.js?v=104', './pwa.js?v=104', './manifest.json?v=104',
+  './?v=106', './index.html?v=106', './style.css?v=106', './app.js?v=106', './pwa.js?v=106', './manifest.json?v=106',
   './icons/icon-192.png','./icons/icon-512.png','./icons/maybike-logo.png','./icons/maybike-logo-horizontal.png','./icons/maybike-logo-print.png'
 ];
 self.addEventListener('install', event => {
@@ -22,5 +22,5 @@ self.addEventListener('fetch', event => {
     const copy = response.clone();
     caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy)).catch(()=>{});
     return response;
-  }).catch(() => caches.match(event.request).then(resp => resp || caches.match('./index.html'))));
+  }).catch(() => caches.match(event.request).then(resp => resp || caches.match('./index.html?v=106'))));
 });

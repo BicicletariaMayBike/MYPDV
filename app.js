@@ -1,7 +1,8 @@
 
-const MYPDV_VERSION='1.0.5';
+const MYPDV_VERSION='1.0.6';
 const firebaseConfig={apiKey:"AIzaSyAhCd5oWt6JS0aiH2JIh0J-xSnjCuOonHI",authDomain:"my-pdv-85b1e.firebaseapp.com",databaseURL:"https://my-pdv-85b1e-default-rtdb.firebaseio.com",projectId:"my-pdv-85b1e",storageBucket:"my-pdv-85b1e.firebasestorage.app",messagingSenderId:"865647781746",appId:"1:865647781746:web:c6d57b880fac9afe0f1feb"};
 let db, auth, cloudOK=false; try{firebase.initializeApp(firebaseConfig);db=firebase.firestore();auth=firebase.auth();cloudOK=true}catch(e){console.warn(e)}
+console.log("My PDV SaaS V1.0.6 carregado", firebaseConfig.projectId, firebaseConfig.apiKey);
 const STORE='maybike_v11_pwa_cloud'; // Mantido para preservar dados locais existentes
 const $=id=>document.getElementById(id); const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7); const today=()=>new Date().toISOString().slice(0,10); const br=d=>d?d.split('-').reverse().join('/'):''; const money=v=>'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2}); const n=v=>Number(v||0);
 let st={users:[{u:'admin',p:'admin',nome:'Douglas',perfil:'Administrador'}],clientes:[],funcionarios:[],maoObra:[],estoque:[],os:[],vendas:[],caixa:[],contas:[],recorrentes:[],config:{multaPercent:2,jurosMesPercent:1,comissaoMecanicoPercent:5,comissaoVendedorPercent:3,margemPadrao:75,margemMinima:70,garantiaDias:90,revisaoDias:120,metaMensal:30000},seqOS:1,seqVenda:1};

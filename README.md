@@ -1,4 +1,4 @@
-# My PDV SaaS V1.0.5 Comercial
+# My PDV SaaS V1.0.6 Comercial
 
 Sistema completo para publicar em um repositório novo do GitHub Pages.
 
