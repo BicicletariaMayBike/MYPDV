@@ -1,7 +1,8 @@
 
-const MYPDV_VERSION='1.0.6';
-const firebaseConfig={apiKey:"AIzaSyAhCd50Wt6JS0aiH2JIh0J-xSnjCu0onHI",authDomain:"my-pdv-85b1e.firebaseapp.com",databaseURL:"https://my-pdv-85b1e-default-rtdb.firebaseio.com",projectId:"my-pdv-85b1e",storageBucket:"my-pdv-85b1e.firebasestorage.app",messagingSenderId:"865647781746",appId:"1:865647781746:web:c6d57b880fac9afe0f1feb"};
+const MYPDV_VERSION='1.0.7';
+const firebaseConfig={apiKey:"AIzaSyAhCd5oWt6JS0aiH2JIh0J-xSnjCuOonHI",authDomain:"my-pdv-85b1e.firebaseapp.com",databaseURL:"https://my-pdv-85b1e-default-rtdb.firebaseio.com",projectId:"my-pdv-85b1e",storageBucket:"my-pdv-85b1e.firebasestorage.app",messagingSenderId:"865647781746",appId:"1:865647781746:web:c6d57b880fac9afe0f1feb"};
 let db, auth, cloudOK=false; try{firebase.initializeApp(firebaseConfig);db=firebase.firestore();auth=firebase.auth();cloudOK=true}catch(e){console.warn(e)}
+console.log("My PDV SaaS V1.0.7 carregado", firebaseConfig.projectId, firebaseConfig.apiKey);
 const STORE='maybike_v11_pwa_cloud'; // Mantido para preservar dados locais existentes
 const $=id=>document.getElementById(id); const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7); const today=()=>new Date().toISOString().slice(0,10); const br=d=>d?d.split('-').reverse().join('/'):''; const money=v=>'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2}); const n=v=>Number(v||0);
 let st={users:[{u:'admin',p:'admin',nome:'Douglas',perfil:'Administrador'}],clientes:[],funcionarios:[],maoObra:[],estoque:[],os:[],vendas:[],caixa:[],contas:[],recorrentes:[],config:{multaPercent:2,jurosMesPercent:1,comissaoMecanicoPercent:5,comissaoVendedorPercent:3,margemPadrao:75,margemMinima:70,garantiaDias:90,revisaoDias:120,metaMensal:30000},seqOS:1,seqVenda:1};
@@ -219,7 +220,7 @@ function exportRelatoriosCSV(){let rows=[['Tipo','Valor'],['Vendas',st.vendas.le
 function exportContasCSV(){let rows=[['Código','Vencimento','Tipo','Cliente','Descrição','Valor','Status'],...(st.contas||[]).map(c=>[c.cod,c.venc,c.tipo,c.cliente,c.desc,totalConta(c),c.status])];csvDownload('contas_maybike.csv',rows)}
 
 
-// ===== My PDV SaaS V1.0.3.3 Comercial =====
+// ===== My PDV SaaS V1.0.4.3 Comercial =====
 function ensureSaasPages(){
   if(!pages.find(p=>p[0]=='loja')) pages.push(['loja','🏢 Minha Loja']);
   if(!pages.find(p=>p[0]=='master')) pages.push(['master','👑 Painel Master']);
@@ -228,9 +229,9 @@ function ensureSaasPages(){
 }
 function setLoginSaasUI(){
   const loginBox=document.querySelector('#login .box'); if(!loginBox) return;
-  document.title='My PDV — SaaS V1.0.3 Comercial';
+  document.title='My PDV — SaaS V1.0.4 Comercial';
   const h=loginBox.querySelector('h1'); if(h) h.textContent='My PDV';
-  const p=loginBox.querySelector('.brand p'); if(p) p.textContent='SaaS V1.0.3 Comercial — Multiempresa';
+  const p=loginBox.querySelector('.brand p'); if(p) p.textContent='SaaS V1.0.4 Comercial — Multiempresa';
   const user=$('user'); if(user){user.value=''; user.placeholder='seuemail@loja.com';}
   const pass=$('pass'); if(pass){pass.value=''; pass.placeholder='Senha';}
   const notice=loginBox.querySelector('.notice'); if(notice) notice.innerHTML='Entre com seu e-mail ou crie a primeira loja para começar.';
@@ -255,7 +256,7 @@ async function createSaasCompany(){
     await db.collection('empresas').doc(empresaId).set(empresa);
     await db.collection('usuarios').doc(cred.user.uid).set({uid:cred.user.uid,empresaId,nome,email,perfil:'Proprietário',master,ativo:true,criadoEm:new Date().toISOString()});
     st=makeEmptyState(); st.empresa=empresa; st.users=[{u:email,nome,perfil:'Proprietário'}]; currentEmpresaId=empresaId; currentUser=cred.user; currentProfile={empresaId,nome,email,perfil:'Proprietário',master}; isMaster=master; await save(); closeM();
-  }catch(e){alert('Erro ao criar empresa: '+(e.message||e)+'\n\nSe aparecer auth/api-key-not-valid, confira se o app.js publicado é a V1.0.3 e se a API key do Firebase My PDV não está bloqueada por restrição no Google Cloud.')}
+  }catch(e){alert('Erro ao criar empresa: '+(e.message||e)+'\n\nSe aparecer auth/api-key-not-valid, confira se o app.js publicado é a V1.0.4 e se a API key do Firebase My PDV não está bloqueada por restrição no Google Cloud.')}
 }
 async function initSaasAuth(){
   setLoginSaasUI();
@@ -275,9 +276,9 @@ async function initSaasAuth(){
 }
 function updateSaasBrand(){
   const emp=st.empresa||{};
-  document.title=(emp.nome||'My PDV')+' — My PDV SaaS V1.0.3';
+  document.title=(emp.nome||'My PDV')+' — My PDV SaaS V1.0.4';
   document.querySelectorAll('.store h1').forEach(x=>x.textContent=emp.nome||'My PDV');
-  document.querySelectorAll('.store small').forEach(x=>x.innerHTML=`WhatsApp: <b>${emp.whats||'—'}</b><br>E-mail: <b>${emp.email||'—'}</b><br>Plano: <b>${emp.plano||'Starter'}</b><br>My PDV SaaS V1.0.3`);
+  document.querySelectorAll('.store small').forEach(x=>x.innerHTML=`WhatsApp: <b>${emp.whats||'—'}</b><br>E-mail: <b>${emp.email||'—'}</b><br>Plano: <b>${emp.plano||'Starter'}</b><br>My PDV SaaS V1.0.4`);
 }
 function loja(){
  const e=st.empresa||{};
