@@ -1,6 +1,6 @@
 
-const MYPDV_VERSION='1.0.4';
-const firebaseConfig={apiKey:"AIzaSyAhCd5oWt6JS0aiH2JlH0J-xSnjCuOonHI",authDomain:"my-pdv-85b1e.firebaseapp.com",databaseURL:"https://my-pdv-85b1e-default-rtdb.firebaseio.com",projectId:"my-pdv-85b1e",storageBucket:"my-pdv-85b1e.firebasestorage.app",messagingSenderId:"865647781746",appId:"1:865647781746:web:c6d57b880fac9afe0f1feb"};
+const MYPDV_VERSION='1.0.5';
+const firebaseConfig={apiKey:"AIzaSyAhCd5oWt6JS0aiH2JIh0J-xSnjCuOonHI",authDomain:"my-pdv-85b1e.firebaseapp.com",databaseURL:"https://my-pdv-85b1e-default-rtdb.firebaseio.com",projectId:"my-pdv-85b1e",storageBucket:"my-pdv-85b1e.firebasestorage.app",messagingSenderId:"865647781746",appId:"1:865647781746:web:c6d57b880fac9afe0f1feb"};
 let db, auth, cloudOK=false; try{firebase.initializeApp(firebaseConfig);db=firebase.firestore();auth=firebase.auth();cloudOK=true}catch(e){console.warn(e)}
 const STORE='maybike_v11_pwa_cloud'; // Mantido para preservar dados locais existentes
 const $=id=>document.getElementById(id); const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7); const today=()=>new Date().toISOString().slice(0,10); const br=d=>d?d.split('-').reverse().join('/'):''; const money=v=>'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2}); const n=v=>Number(v||0);
