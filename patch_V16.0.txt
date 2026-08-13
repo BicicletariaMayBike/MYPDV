@@ -1,0 +1,191 @@
+/* ===== PATCH V16.0 — PDV PROFISSIONAL / FLUXO DE CAIXA ===== */
+(function(){
+  const BUILD='V16.0 PDV Enterprise';
+  window.MYPDV_BUILD=BUILD;
+
+  function isAdmin(){
+    const p=String(currentProfile?.perfil||currentUser?.perfil||'').toLowerCase();
+    return isMaster || ['administrador','proprietário','proprietario','admin','dono'].includes(p);
+  }
+  function esc(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+  function audit(acao,detalhe){try{if(typeof logAudit==='function')logAudit(acao,detalhe)}catch(e){}}
+
+  /* ---------- ESTOQUE: ocultar custos na visão operacional ---------- */
+  const estoqueOriginal=estoque;
+  window.estoque=function(){
+    const totalCusto=st.estoque.reduce((a,e)=>a+n(e.qtd)*calcProduto(e).custoReal,0);
+    const totalVenda=st.estoque.reduce((a,e)=>{let c=calcProduto(e);return a+n(e.qtd)*n(e.venda||c.vendaSugerida)},0);
+    const crit=st.estoque.filter(e=>n(e.qtd)<=n(e.min)).length;
+    const parado=typeof produtosParados==='function'?produtosParados(180).length:0;
+    const rows=st.estoque.map(e=>`<tr>
+      <td><b>${esc(e.cod||'—')}</b></td><td><b>${esc(e.desc)}</b><br><small>${esc(e.forn||'')}</small></td>
+      <td>${esc(e.cat||'—')}</td><td><b>${n(e.qtd)}</b></td><td>${n(e.min)}</td>
+      <td>${money(e.venda||calcProduto(e).vendaSugerida)}</td>
+      <td>${n(e.qtd)<=n(e.min)?'<span class="badge b5">Crítico</span>':'<span class="badge b3">Normal</span>'}</td>
+      <td><button class="btn sm" onclick="copyCode('${esc(e.cod||'')}')">Copiar cód.</button> <button class="btn sm" onclick="openEst('${e.id}')">Editar</button> <button class="btn redbtn sm" onclick="del('estoque','${e.id}')">Excluir</button></td>
+    </tr>`).join('');
+    $('p-estoque').innerHTML=`
+      <div class="grid4">
+        ${isAdmin()?`<div class="metric"><div class="label">Capital em estoque</div><div class="value gold">${money(totalCusto)}</div></div>`:''}
+        <div class="metric"><div class="label">Valor de venda</div><div class="value green">${money(totalVenda)}</div></div>
+        <div class="metric"><div class="label">Estoque crítico</div><div class="value red">${crit}</div></div>
+        <div class="metric"><div class="label">Parados 180+ dias</div><div class="value red">${parado}</div></div>
+      </div>
+      <div class="card"><div class="head"><div><h3>Estoque</h3><p style="color:var(--mut);margin:4px 0 0">Visão operacional. Custos e margens ficam disponíveis somente em <b>Editar</b> para usuários autorizados.</p></div><button class="btn goldbtn" onclick="openEst()">+ Produto/peça</button></div>
+      <table class="table"><thead><tr><th>Código</th><th>Descrição</th><th>Categoria</th><th>Qtd.</th><th>Mín.</th><th>Preço venda</th><th>Status</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="8" class="empty">Nenhum item.</td></tr>'}</tbody></table></div>`;
+  };
+
+  /* ---------- PAGAMENTO ÚNICO PARA PDV E OS ---------- */
+  window.updatePayTotal=function(){
+    const sub=n($('pay_subtotal')?.value), d=n($('pay_desconto')?.value);
+    const total=Math.max(0,sub-d);
+    if($('pay_total'))$('pay_total').value=total.toFixed(2);
+    if($('pay_total_label'))$('pay_total_label').textContent=money(total);
+    if($('pay_desconto_label'))$('pay_desconto_label').textContent=money(d);
+    const entrada=$('pay_entrada'); if(entrada && n(entrada.value)>total) entrada.value=total.toFixed(2);
+  };
+  window.payChange=function(){
+    const f=$('pay_forma')?.value;
+    if($('mix'))$('mix').style.display=f=='Misto'?'block':'none';
+    if($('prazo'))$('prazo').style.display=(f=='A prazo'||f=='Parcial'||f=='Crédito Parcelado')?'block':'none';
+    if($('pay_entrada') && f!='A prazo' && f!='Parcial' && f!='Crédito Parcelado') $('pay_entrada').value=$('pay_total')?.value||0;
+  };
+  window.payHTML=function(total,opts={}){
+    const allowDiscount=opts.allowDiscount!==false;
+    return `<div class="card pdv-pay-card">
+      <div class="pdv-pay-title"><span>💳 Pagamento</span><span id="pay_total_label" class="pdv-grand">${money(total)}</span></div>
+      <div class="form3">
+        <div class="field"><label>Subtotal</label><input id="pay_subtotal" type="number" step="0.01" value="${n(total).toFixed(2)}" readonly></div>
+        <div class="field"><label>Desconto ${allowDiscount?'(R$)':''}</label><input id="pay_desconto" type="number" min="0" step="0.01" value="0" ${allowDiscount?'':'disabled'} oninput="updatePayTotal()"></div>
+        <div class="field"><label>Total a pagar</label><input id="pay_total" type="number" step="0.01" value="${n(total).toFixed(2)}" readonly></div>
+      </div>
+      ${allowDiscount?`<div class="discount-row"><span>Desconto aplicado</span><b id="pay_desconto_label">R$ 0,00</b><span class="discount-hint">Acima de 10% exige autorização do administrador.</span></div>`:''}
+      <div class="form3">
+        <div class="field"><label>Forma de pagamento</label><select id="pay_forma" onchange="payChange()"><option>PIX</option><option>Dinheiro</option><option>Débito</option><option>Crédito 1x</option><option>Crédito Parcelado</option><option>Transferência</option><option>Misto</option><option>A prazo</option><option>Parcial</option></select></div>
+        <div class="field"><label>Observação</label><input id="pay_obs" placeholder="Ex.: 3x, entrada + restante..."></div>
+      </div>
+      <div id="mix" style="display:none" class="card"><h3>Pagamento misto</h3><div class="form3"><input id="mix_pix" type="number" step="0.01" placeholder="PIX"><input id="mix_din" type="number" step="0.01" placeholder="Dinheiro"><input id="mix_card" type="number" step="0.01" placeholder="Cartão"></div></div>
+      <div id="prazo" style="display:none" class="card"><h3>Pagamento a prazo / parcelamento</h3><div class="form3"><div class="field"><label>Entrada recebida agora</label><input id="pay_entrada" type="number" min="0" step="0.01" value="0"></div><div class="field"><label>Nº de parcelas</label><input id="pay_parcelas" type="number" min="1" value="1"></div><div class="field"><label>Primeiro vencimento</label><input id="pay_venc" type="date" value="${addDays(today(),30)}"></div></div><div class="notice">O saldo será lançado automaticamente em <b>Contas a Receber</b>.</div></div>
+    </div>`;
+  };
+  function validatePayment(){
+    const subtotal=n($('pay_subtotal')?.value), desc=n($('pay_desconto')?.value), total=n($('pay_total')?.value);
+    if(desc<0 || desc>subtotal) return {ok:false,msg:'O desconto não pode ser maior que o subtotal.'};
+    if(subtotal>0 && desc/subtotal>0.10 && !isAdmin()) return {ok:false,msg:'Este desconto ultrapassa 10%. Somente o administrador pode autorizar.'};
+    const forma=$('pay_forma')?.value||'';
+    if(forma==='Misto'){
+      const soma=n($('mix_pix')?.value)+n($('mix_din')?.value)+n($('mix_card')?.value);
+      if(Math.abs(soma-total)>0.01)return {ok:false,msg:'A soma do pagamento misto precisa fechar exatamente com o total.'};
+    }
+    const entrada=['A prazo','Parcial','Crédito Parcelado'].includes(forma)?n($('pay_entrada')?.value):total;
+    if(entrada<0 || entrada>total)return {ok:false,msg:'A entrada não pode ser maior que o total.'};
+    return {ok:true,subtotal,desconto:desc,total,forma,entrada,obs:$('pay_obs')?.value||''};
+  }
+  window.confirmarPagamento=function(callback,context='venda'){
+    updatePayTotal();
+    const p=validatePayment(); if(!p.ok)return alert(p.msg);
+    const resumo=`<div class="confirm-sale">
+      <div class="confirm-icon">✓</div><h2>Confirmar finalização?</h2>
+      <p>Confira os dados antes de registrar a venda.</p>
+      <div class="confirm-grid"><span>Subtotal</span><b>${money(p.subtotal)}</b><span>Desconto</span><b>${money(p.desconto)}</b><span>Forma</span><b>${esc(p.forma)}</b><span>Total</span><strong>${money(p.total)}</strong></div>
+    </div>`;
+    modal(`<div class="mhead"><h3>Finalizar ${context}</h3><button class="btn" onclick="closeM()">Voltar</button></div>${resumo}<div class="actions"><button class="btn" onclick="closeM()">Cancelar</button><button class="btn goldbtn" onclick="window.__confirmPayCallback&&window.__confirmPayCallback()">✓ Sim, finalizar e lançar no caixa</button></div>`);
+    window.__confirmPayCallback=function(){delete window.__confirmPayCallback;closeM();callback(p)};
+  };
+
+  /* ---------- PDV DIRETO / CAIXA ---------- */
+  let pdvCart={produtos:[],mao:[],cliente:'Consumidor'};
+  function pdvReset(){pdvCart={produtos:[],mao:[],cliente:'Consumidor'};}
+  function pdvSubtotal(){return pdvCart.produtos.reduce((a,i)=>a+n(i.qtd)*n(i.preco),0)+pdvCart.mao.reduce((a,i)=>a+n(i.valor),0)}
+  function pdvRenderCart(){
+    const box=$('pdv_cart');if(!box)return;
+    const pRows=pdvCart.produtos.map((i,idx)=>`<tr><td>${esc(i.cod||'')}</td><td><b>${esc(i.nome)}</b></td><td><input class="pdv-qtd" type="number" min="1" value="${i.qtd}" onchange="pdvSetQtd(${idx},this.value)"></td><td>${money(i.preco)}</td><td>${money(i.qtd*i.preco)}</td><td><button class="btn redbtn sm" onclick="pdvDelProd(${idx})">X</button></td></tr>`).join('');
+    const mRows=pdvCart.mao.map((i,idx)=>`<tr><td>MO</td><td><b>🛠️ ${esc(i.desc)}</b></td><td>1</td><td>${money(i.valor)}</td><td>${money(i.valor)}</td><td><button class="btn redbtn sm" onclick="pdvDelMao(${idx})">X</button></td></tr>`).join('');
+    box.innerHTML=`<table class="table pdv-cart-table"><thead><tr><th>Cód.</th><th>Item / serviço</th><th>Qtd.</th><th>Unit.</th><th>Total</th><th></th></tr></thead><tbody>${pRows}${mRows||(!pRows?'<tr><td colspan="6" class="empty">Adicione produtos ou mão de obra.</td></tr>':'')}</tbody></table>`;
+    $('pdv_subtotal').textContent=money(pdvSubtotal());
+  }
+  window.pdvSetQtd=function(i,q){pdvCart.produtos[i].qtd=Math.max(1,parseInt(q||1));pdvRenderCart()};
+  window.pdvDelProd=function(i){pdvCart.produtos.splice(i,1);pdvRenderCart()};
+  window.pdvDelMao=function(i){pdvCart.mao.splice(i,1);pdvRenderCart()};
+  window.pdvAddProduto=function(){const q=($('pdv_busca')?.value||'').toLowerCase().trim();if(!q)return;let e=st.estoque.find(x=>String(x.cod||'').toLowerCase()==q)||st.estoque.find(x=>String(x.desc||'').toLowerCase().includes(q));if(!e)return alert('Produto não encontrado.');let it=pdvCart.produtos.find(x=>x.prodId==e.id);if(it)it.qtd++;else pdvCart.produtos.push({prodId:e.id,cod:e.cod,nome:e.desc,qtd:1,preco:n(e.venda||calcProduto(e).vendaSugerida)});$('pdv_busca').value='';pdvRenderCart();$('pdv_busca')?.focus()};
+  window.pdvAddMao=function(){const id=$('pdv_mao')?.value;if(!id)return;const m=(st.maoObra||[]).find(x=>x.id==id);if(m)pdvCart.mao.push({maoId:m.id,desc:m.nome,valor:n(m.valor)});pdvRenderCart()};
+  window.pdvFinalizar=function(){if(!pdvCart.produtos.length&&!pdvCart.mao.length)return alert('Adicione pelo menos um produto ou serviço.');const total=pdvSubtotal();const cli=$('pdv_cliente')?.value||'Consumidor';modal(`<div class="mhead"><h3>Pagamento — ${esc(cli)}</h3><button class="btn" onclick="closeM()">Voltar</button></div>${payHTML(total)}<div class="actions"><button class="btn goldbtn" onclick="confirmarPagamento(window.pdvCommit,'venda')">Continuar e revisar pagamento</button></div>`);};
+  window.pdvCommit=function(p){
+    for(const i of pdvCart.produtos){const e=st.estoque.find(x=>x.id==i.prodId);if(!e)return alert('Produto não encontrado no estoque.');if(n(e.qtd)<n(i.qtd))return alert('Estoque insuficiente para '+e.desc)}
+    for(const i of pdvCart.produtos){const e=st.estoque.find(x=>x.id==i.prodId);e.qtd-=n(i.qtd)}
+    const v={id:uid(),num:st.seqVenda++,cod:typeof v14SaleCode==='function'?v14SaleCode():'VD'+String(st.seqVenda).padStart(6,'0'),docCod:'DV'+String(st.seqDocumento++).padStart(6,'0'),data:today(),cliente:$('pdv_cliente')?.value||'Consumidor',origem:'PDV',total:p.total,subtotal:p.subtotal,descontoPagamento:p.desconto,forma:p.forma,obs:p.obs,status:p.entrada>=p.total?'Recebida':(p.entrada>0?'Parcial / a receber':'A receber'),entrada:p.entrada,itens:[...pdvCart.produtos,...pdvCart.mao.map(m=>({nome:m.desc,qtd:1,preco:m.valor,tipo:'Mão de obra',maoId:m.maoId}))]};
+    if(p.forma==='Misto')v.mix={pix:n($('mix_pix')?.value),dinheiro:n($('mix_din')?.value),cartao:n($('mix_card')?.value)};
+    st.vendas.push(v);if(p.entrada>0)addCaixa('Entrada',p.entrada,'Venda '+v.cod+' — '+v.cliente,'PDV');if(p.entrada<p.total)gerarContasReceber(v,p.total,p.entrada,$('pay_parcelas')?.value,$('pay_venc')?.value);audit('Venda finalizada',`${v.cod} — ${v.cliente} — total ${money(v.total)} — desconto ${money(v.descontoPagamento)}`);closeM();save();pdvReset();render('pdv');setTimeout(()=>printRec(v.id),250);
+  };
+  window.pdv=function(){
+    if(!pdvCart)pdvReset();
+    const opts=(st.maoObra||[]).filter(x=>x.ativo!==false).map(m=>`<option value="${m.id}">${esc(m.nome)} — ${money(m.valor)}</option>`).join('');
+    $('p-pdv').innerHTML=`<div class="pdv-shell">
+      <div class="pdv-main"><div class="card"><div class="head"><div><h2 style="margin:0">🛒 PDV / Caixa rápido</h2><p style="color:var(--mut);margin:4px 0">Venda produtos e serviços em uma única operação.</p></div><button class="btn" onclick="pdvReset();pdv()">Nova venda</button></div>
+        <div class="form2"><div class="field"><label>Cliente</label><input id="pdv_cliente" value="${esc(pdvCart.cliente||'Consumidor')}" oninput="pdvCart.cliente=this.value"></div><div class="field"><label>Produto / código de barras</label><div style="display:flex;gap:8px"><input id="pdv_busca" autofocus placeholder="Digite código ou nome e pressione Enter" onkeydown="if(event.key==='Enter')pdvAddProduto()"><button class="btn goldbtn" onclick="pdvAddProduto()">+ Adicionar</button></div></div></div>
+        <div class="toolbar"><select id="pdv_mao"><option value="">Selecionar mão de obra...</option>${opts}</select><button class="btn" onclick="pdvAddMao()">🛠️ Adicionar serviço</button></div>
+        <div id="pdv_cart"></div></div></div>
+      <aside class="pdv-side"><div class="pdv-total-box"><span>SUBTOTAL</span><strong id="pdv_subtotal">${money(pdvSubtotal())}</strong></div><div class="notice">⚡ <b>Atalhos:</b> F2 nova venda · F3 produto · F8 pagamento · ESC cancelar</div><button class="pdv-finish" onclick="pdvFinalizar()">F8 — IR PARA PAGAMENTO</button></aside>
+    </div>`;pdvRenderCart();setTimeout(()=>$('pdv_busca')?.focus(),50);
+  };
+
+  /* ---------- OS: mesmo fluxo de pagamento e desconto final ---------- */
+  window.openPay=function(id){const o=st.os.find(x=>x.id==id);if(!o)return;const subtotal=Math.max(0,calcOS(o).total);modal(`<div class="mhead"><h3>Receber / Faturar OS ${o.cod||'#'+o.num}</h3><button class="btn" onclick="closeM()">Fechar</button></div><div class="notice"><b>Cliente:</b> ${esc(o.cliente)}<br><b>Funcionário:</b> ${esc(o.funcionario||'—')}<br><b>Total da OS:</b> ${money(subtotal)}</div>${payHTML(subtotal)}<div class="actions"><button class="btn goldbtn" onclick="confirmarPagamento(function(p){receberOSV16('${id}',p)},'faturamento da OS')">Continuar para confirmação</button></div>`)};
+  window.receberOSV16=function(id,p){const o=st.os.find(x=>x.id==id);if(!o)return;const mix=p.forma==='Misto'?{pix:n($('mix_pix')?.value),dinheiro:n($('mix_din')?.value),cartao:n($('mix_card')?.value)}:null;const v={id:uid(),num:st.seqVenda++,cod:typeof v14SaleCode==='function'?v14SaleCode():'VD'+String(st.seqVenda).padStart(6,'0'),data:today(),cliente:o.cliente,origem:'OS #'+o.num,osId:o.id,funcionario:o.funcionario,funcionarioId:o.funcionarioId,subtotal:p.subtotal,total:p.total,descontoPagamento:p.desconto,descontoOS:n(o.desc),forma:p.forma,obs:p.obs,mix,status:p.entrada>=p.total?'Recebida':(p.entrada>0?'Parcial / a receber':'A receber'),entrada:p.entrada,itens:[...(o.pecas||[]),...(o.mao||[]).map(m=>({nome:m.desc,qtd:1,preco:m.valor,tipo:'Mão de obra'}))]};st.vendas.push(v);o.status=p.entrada>=p.total?'Faturada':'Pronta para retirada';o.pagamento={forma:p.forma,total:p.total,subtotal:p.subtotal,descontoPagamento:p.desconto,obs:p.obs,mix,data:today(),vendaId:v.id,status:v.status};if(p.entrada>0)addCaixa('Entrada',p.entrada,'Recebimento '+(o.cod||'OS')+' — '+o.cliente,'OS / Serviço');if(p.entrada<p.total)gerarContasReceber(v,p.total,p.entrada,$('pay_parcelas')?.value,$('pay_venc')?.value);audit('OS faturada',`${o.cod||'OS'+o.num} — ${o.cliente} — total ${money(v.total)} — desconto ${money(v.descontoPagamento)}`);closeM();save();setTimeout(()=>printRec(v.id),250)};
+
+  /* ---------- HISTÓRICO DE VENDAS: mostra desconto ---------- */
+  const vendasBase=vendas;
+  window.vendas=function(){
+    migrateV13();registrarBikesVendidasPendentes();
+    const prontas=st.os.filter(o=>o.status==='Pronta para retirada').map(o=>`<tr><td>${esc(o.cod||('OS'+String(o.num||0).padStart(6,'0')))}</td><td>${esc(o.cliente)}</td><td>${esc(o.funcionario||'—')}</td><td>${money(calcOS(o).total)}</td><td><button class="btn goldbtn sm" onclick="openPay('${o.id}')">Receber / Faturar</button></td></tr>`).join('');
+    const vend=st.vendas.slice().reverse().map(v=>`<tr><td><b>${esc(v.docCod||v.cod||'#'+v.num)}</b></td><td>${br(v.data)}</td><td>${esc(v.cliente)}</td><td>${esc(v.origem||'Venda')}</td><td>${esc(v.forma||'—')}</td><td>${money(v.descontoPagamento||0)}</td><td><b>${money(v.total)}</b></td><td>${esc(v.status||'Recebida')}</td><td><button class="btn sm" onclick="printRec('${v.id}')">Recibo</button></td></tr>`).join('');
+    $('p-vendas').innerHTML=`<div class="grid2"><div class="card"><div class="head"><h3>OS prontas para faturar</h3></div><table class="table"><thead><tr><th>OS</th><th>Cliente</th><th>Funcionário</th><th>Total</th><th></th></tr></thead><tbody>${prontas||'<tr><td colspan="5" class="empty">Nenhuma OS pronta.</td></tr>'}</tbody></table></div><div class="card pdv-launch"><div><h3>Venda rápida</h3><p>Venda peças, bicicletas, acessórios e <b>mão de obra</b> direto no caixa.</p></div><button class="btn goldbtn" onclick="go('pdv')">🛒 Abrir PDV</button></div></div><div class="card"><div class="head"><h3>Histórico de vendas</h3><button class="btn" onclick="go('pdv')">+ Nova venda</button></div><table class="table"><thead><tr><th>Documento</th><th>Data</th><th>Cliente</th><th>Origem</th><th>Pagamento</th><th>Desconto</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody>${vend||'<tr><td colspan="9" class="empty">Nenhuma venda.</td></tr>'}</tbody></table></div>`;
+  };
+
+  /* ---------- RECIBO: detalha desconto e itens ---------- */
+  const oldPrintRecV16=printRec;
+  window.printRec=function(id){
+    const v=(st.vendas||[]).find(x=>x.id==id);if(!v)return oldPrintRecV16(id);
+    const itens=(v.itens||[]).map(i=>`<tr><td>${esc(i.tipo||'Produto')}</td><td>${esc(i.nome||i.desc||'Item')}</td><td>${i.qtd||1}</td><td>${money(i.preco||0)}</td><td>${money(n(i.qtd||1)*n(i.preco||0))}</td></tr>`).join('');
+    $('print').innerHTML=`<div style="font-family:Arial,sans-serif;color:#111;font-size:12px">${logoPrintHTML()}<h2 style="text-align:center">RECIBO / VENDA ${esc(v.cod||v.docCod||'#'+v.num)}</h2><p><b>Cliente:</b> ${esc(v.cliente||'Consumidor')} &nbsp; <b>Data:</b> ${br(v.data)}</p><table style="width:100%;border-collapse:collapse" border="1" cellpadding="6"><thead><tr><th>Tipo</th><th>Descrição</th><th>Qtd.</th><th>Unit.</th><th>Total</th></tr></thead><tbody>${itens}<tr><td colspan="4"><b>Subtotal</b></td><td>${money(v.subtotal??v.total)}</td></tr><tr><td colspan="4"><b>Desconto</b></td><td>${money(v.descontoPagamento||0)}</td></tr><tr><td colspan="4"><b>TOTAL</b></td><td><b>${money(v.total)}</b></td></tr></tbody></table><p><b>Pagamento:</b> ${esc(v.forma||'—')} &nbsp; <b>Recebido:</b> ${money(v.entrada??v.total)}</p><p><b>Status:</b> ${esc(v.status||'Recebida')}</p><p style="margin-top:25px">Assinatura cliente: ________________________________</p></div>`;setTimeout(()=>window.print(),100);
+  };
+
+  /* ---------- ATALHOS DE TECLADO ---------- */
+  document.addEventListener('keydown',function(e){
+    const tag=(e.target?.tagName||'').toLowerCase();
+    if(['input','textarea','select'].includes(tag) && e.key!=='Escape'){
+      if(e.key==='F8'){e.preventDefault();if(current==='pdv')pdvFinalizar();}
+      return;
+    }
+    if(e.key==='F2'){e.preventDefault();go('pdv')}
+    else if(e.key==='F3'){e.preventDefault();go('pdv');setTimeout(()=>$('pdv_busca')?.focus(),60)}
+    else if(e.key==='F8'){e.preventDefault();if(current==='pdv')pdvFinalizar()}
+    else if(e.key==='Escape' && document.querySelector('.modal.show')){try{closeM()}catch(x){}}
+  });
+
+  /* ---------- DASHBOARD: indicadores rápidos ---------- */
+  const oldDashboardV16=dashboard;
+  window.dashboard=function(){
+    oldDashboardV16();
+    try{
+      const mes=monthKey(today()),vs=st.vendas.filter(v=>monthKey(v.data)==mes);
+      const desconto=vs.reduce((a,v)=>a+n(v.descontoPagamento),0),ticket=vs.length?vs.reduce((a,v)=>a+n(v.total),0)/vs.length:0;
+      const grid=document.querySelector('#p-dashboard .grid4');
+      if(grid){const d=document.createElement('div');d.className='metric';d.innerHTML=`<div class="label">Descontos no mês</div><div class="value red">${money(desconto)}</div><small>Ticket médio: ${money(ticket)}</small>`;grid.appendChild(d)}
+    }catch(e){}
+  };
+
+  /* ---------- MENU PDV + VISUAL ---------- */
+  if(!pages.find(p=>p[0]==='pdv')) pages.unshift(['pdv','🛒 PDV / Caixa']);
+  const renderBase=render;
+  window.render=function(p){
+    if(p==='pdv')return pdv();
+    return renderBase(p);
+  };
+  window.go=function(p){current=p;document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));if(!$('p-'+p)){const d=document.createElement('div');d.id='p-'+p;d.className='page';document.querySelector('.content')?.appendChild(d)}$('p-'+p)?.classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));$('n-'+p)?.classList.add('active');const pg=pages.find(x=>x[0]==p);$('title').textContent=pg?pg[1].replace(/^. /,''):p;render(p)};
+  nav();
+  try{document.title='May Bike — My PDV V16.0 PDV Enterprise';}catch(e){}
+  const style=document.createElement('style');style.textContent=`
+    .pdv-shell{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}.pdv-side{position:sticky;top:12px}.pdv-total-box{background:linear-gradient(135deg,#151d29,#0d1118);border:1px solid #d6a600;border-radius:16px;padding:22px;margin-bottom:12px}.pdv-total-box span{display:block;color:var(--mut);font-size:12px;font-weight:700}.pdv-total-box strong{display:block;color:#f7c21b;font-size:38px;margin-top:8px}.pdv-finish{width:100%;border:0;border-radius:14px;background:#f2b900;color:#111;font-weight:900;font-size:17px;padding:18px;cursor:pointer;box-shadow:0 8px 25px rgba(0,0,0,.25)}.pdv-cart-table input{max-width:75px}.pdv-pay-card{border:1px solid #d6a600}.pdv-pay-title{display:flex;justify-content:space-between;align-items:center;font-size:18px;font-weight:800;margin-bottom:14px}.pdv-grand{font-size:28px;color:#f2b900}.discount-row{display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:10px;background:rgba(242,185,0,.08);margin:10px 0}.discount-row .discount-hint{margin-left:auto;color:var(--mut);font-size:12px}.confirm-sale{text-align:center;padding:12px}.confirm-icon{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;margin:0 auto 10px;background:#1f9d55;color:#fff;font-size:28px;font-weight:900}.confirm-grid{display:grid;grid-template-columns:1fr auto;gap:10px;text-align:left;padding:15px;border-radius:12px;background:#101722;margin-top:15px}.confirm-grid strong{font-size:22px;color:#f2b900}.pdv-launch{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid #d6a600}.badge{white-space:nowrap}@media(max-width:900px){.pdv-shell{grid-template-columns:1fr}.pdv-side{position:static}.discount-row{flex-wrap:wrap}.discount-row .discount-hint{width:100%;margin-left:0}}
+  `;document.head.appendChild(style);
+})();
